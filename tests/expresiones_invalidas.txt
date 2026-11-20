@@ -1,0 +1,36 @@
+// Casos de prueba invalidos: errores lexicos, sintacticos y matematicos
+// 1. Error lexico: caracter no reconocido
+sin(x) + @
+// 2. Token de C no permitido en expresiones trigonometricas
+cos(x);
+// 3. Literal hexadecimal no permitido
+0x10 + 1
+// 4. Parentesis desbalanceado (falta cierre)
+sen(x + 1
+// 5. Parentesis de cierre sin apertura
+x + 1)
+// 6. Parentesis vacios / argumento vacio
+sin()
+// 7. Funcion sin parentesis
+sin x
+// 8. Funcion desconocida
+log(x)
+// 9. Dos operadores seguidos / expresion incompleta
+2 + * 3
+5 ^
+// 10. Operandos sin operador entre ellos
+2 x
+// 11. Numeros mal formados (doble punto, punto solo, exponente incompleto, letras pegadas)
+3..1 + 1
+. + 1
+3445ea
+1.5e+
+1.2.3
+// 12. Error matematico: division por cero
+10 / (2 - 2)
+// 13. Error matematico: 0 elevado a exponente negativo
+0^-2
+// 14. Error matematico: base negativa con exponente fraccionario
+(-4)^0.5
+// 15. Error matematico: constante fuera del rango double
+1e400

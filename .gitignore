@@ -1,0 +1,26 @@
+# Binarios y compilados de C/C++
+/build/
+/evaluador
+/test_unitarios
+*.o
+*.obj
+*.out
+*.exe
+
+# Configuración local de IDE / editores
+.vscode/
+*.swp
+*.swo
+*~
+
+# Archivos temporales de LaTeX (se conserva .tex y .pdf)
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
+*.toc
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db

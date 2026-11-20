@@ -1,0 +1,130 @@
+======================================================================
+  VALIDACION MATEMATICA: EVALUADOR C++ vs PYTHON math (x=1.0, y=0.5, z=2.0)
+======================================================================
+[1] Expresion : sen(3.14 / 2) + cos(0) * 2^2
+    Evaluador : 4.99999968293183
+    Python    : 4.99999968293183  (|diff| = 4.44e-15) -> OK
+[2] Expresion : sen(x) + cos(y)
+    Variables : x=1.0, y=0.5
+    Evaluador : 1.71905354669827
+    Python    : 1.71905354669827  (|diff| = 6.66e-16) -> OK
+[3] Expresion : sen(cos(x))+ tan(y)/cos(x) // luego se debería ingresar o pedir los valores de x, y
+    Variables : x=1.0, y=0.5
+    Evaluador : 1.52550049333466
+    Python    : 1.52550049333466  (|diff| = 6.66e-16) -> OK
+[4] Expresion : cos(x)^2 + sen(x)^2
+    Variables : x=1.0
+    Evaluador : 1
+    Python    : 1  (|diff| = 0.00e+00) -> OK
+[5] Expresion : sin(x)
+    Variables : x=1.0
+    Evaluador : 0.841470984807897
+    Python    : 0.841470984807897  (|diff| = 4.44e-16) -> OK
+[6] Expresion : cos(x + y)
+    Variables : x=1.0, y=0.5
+    Evaluador : 0.0707372016677029
+    Python    : 0.0707372016677029  (|diff| = 0.00e+00) -> OK
+[7] Expresion : tan(x^2 + sin(x))
+    Variables : x=1.0
+    Evaluador : -3.60380353200881
+    Python    : -3.60380353200881  (|diff| = 4.44e-15) -> OK
+[8] Expresion : .5 + 3.
+    Evaluador : 3.5
+    Python    : 3.5  (|diff| = 0.00e+00) -> OK
+[9] Expresion : -.25 + +.75
+    Evaluador : 0.5
+    Python    : 0.5  (|diff| = 0.00e+00) -> OK
+[10] Expresion : 1.5e-3 * 2E3
+    Evaluador : 3
+    Python    : 3  (|diff| = 0.00e+00) -> OK
+[11] Expresion : .5e2 + 3.e-1
+    Evaluador : 50.3
+    Python    : 50.3  (|diff| = 0.00e+00) -> OK
+[12] Expresion : sen(cos(tan(0.5)))
+    Evaluador : 0.754210756032613
+    Python    : 0.754210756032613  (|diff| = 4.44e-16) -> OK
+[13] Expresion : tan(sin(cos(.5)) + 1.2e-2)
+    Evaluador : 0.991631496487538
+    Python    : 0.991631496487538  (|diff| = 1.11e-16) -> OK
+[14] Expresion : cos(sen(x) + tan(y * 1e-1))
+    Variables : x=1.0, y=0.5
+    Evaluador : 0.628235835763506
+    Python    : 0.628235835763506  (|diff| = 1.11e-16) -> OK
+[15] Expresion : -2^2 + 10 / 2 * 3
+    Evaluador : 11
+    Python    : 11  (|diff| = 0.00e+00) -> OK
+[16] Expresion : 2^3^2
+    Evaluador : 512
+    Python    : 512  (|diff| = 0.00e+00) -> OK
+[17] Expresion : sin(-x + 0.5 * z) / (1 + cos(y)^2)
+    Variables : x=1.0, y=0.5, z=2.0
+    Evaluador : 0
+    Python    : 0  (|diff| = 0.00e+00) -> OK
+
+======================================================================
+  PRUEBAS DE VALIDACION DE ERRORES (LEXICOS, SINTACTICOS, MATEMATICOS)
+======================================================================
+[3] Expresion: sin(x) + @
+
+[5] Expresion: cos(x);
+
+[7] Expresion: 0x10 + 1
+
+[9] Expresion: sen(x + 1
+
+[11] Expresion: x + 1)
+
+[13] Expresion: sin()
+
+[15] Expresion: sin x
+
+[17] Expresion: log(x)
+
+[19] Expresion: 2 + * 3
+
+[20] Expresion: 5 ^
+
+[22] Expresion: 2 x
+
+[24] Expresion: 3..1 + 1
+
+[25] Expresion: . + 1
+
+[26] Expresion: 3445ea
+
+[27] Expresion: 1.5e+
+
+[28] Expresion: 1.2.3
+
+[30] Expresion: 10 / (2 - 2)
+
+[32] Expresion: 0^-2
+
+[34] Expresion: (-4)^0.5
+
+[36] Expresion: 1e400
+--- Salida stderr ---
+==================================================
+  RESUMEN: 1 error(es) lexico(s)
+==================================================
+  [1] Linea   1, Col  11 : Caracter no reconocido: '@' -> "@"
+==================================================
+[ERROR] Error lexico (linea 1, col 7): Token ';' no permitido en expresiones trigonometricas [cerca de ";"]
+[ERROR] Error lexico (linea 1, col 1): Numero '0x10' invalido; solo se permiten constantes reales decimales [cerca de "0x10"]
+[ERROR] Error sintactico (linea 1, col 10): Se esperaba ')' para cerrar 'sen(...)', se encontro 'EOF' [cerca de "EOF"]
+[ERROR] Error sintactico (linea 1, col 6): Parentesis de cierre ')' sin apertura correspondiente [cerca de ")"]
+[ERROR] Error sintactico (linea 1, col 5): Argumento vacio en llamada a 'sin()' [cerca de ")"]
+[ERROR] Error sintactico (linea 1, col 5): Se esperaba '(' despues de la funcion 'sin' [cerca de "x"]
+[ERROR] Error sintactico (linea 1, col 1): Funcion desconocida 'log' (funciones soportadas: sin/sen, cos, tan) [cerca de "log"]
+[ERROR] Error sintactico (linea 1, col 5): Operador o token inesperado '*': se esperaba un operando, funcion o '(' [cerca de "*"]
+[ERROR] Error sintactico (linea 1, col 4): Expresion incompleta: se esperaba un numero, variable, funcion o '(' [cerca de "EOF"]
+[ERROR] Error sintactico (linea 1, col 3): Token inesperado 'x' (se esperaba un operador o fin de expresion) [cerca de "x"]
+[ERROR] Error lexico (linea 1, col 2): Token '.' no permitido en expresiones trigonometricas [cerca de "."]
+[ERROR] Error lexico (linea 1, col 1): Token '.' no permitido en expresiones trigonometricas [cerca de "."]
+[ERROR] Error sintactico (linea 1, col 5): Token inesperado 'ea' (se esperaba un operador o fin de expresion) [cerca de "ea"]
+[ERROR] Error sintactico (linea 1, col 4): Token inesperado 'e' (se esperaba un operador o fin de expresion) [cerca de "e"]
+[ERROR] Error sintactico (linea 1, col 4): Token inesperado '.3' (se esperaba un operador o fin de expresion) [cerca de ".3"]
+[ERROR] Error matematico (linea 1, col 4): Division por cero: el divisor evalua a 0 [cerca de "/"]
+[ERROR] Error matematico (linea 1, col 2): Division por cero implicita: 0 elevado a exponente negativo [cerca de "^"]
+[ERROR] Error matematico (linea 1, col 5): Potencia indefinida en los reales: base negativa con exponente no entero [cerca de "^"]
+[ERROR] Error matematico (linea 1, col 1): Constante numerica fuera del rango de precision double [cerca de "1e400"]

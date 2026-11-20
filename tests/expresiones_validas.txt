@@ -1,0 +1,21 @@
+// Casos de prueba validos (incluye todos los ejemplos del Trabajo Practico 3)
+sen(3.14 / 2) + cos(0) * 2^2
+sen(x) + cos(y)
+sen(cos(x))+ tan(y)/cos(x) // luego se debería ingresar o pedir los valores de x, y
+cos(x)^2 + sen(x)^2
+sin(x)
+cos(x + y)
+tan(x^2 + sin(x))
+// Distintos tipos de constantes reales (enteros, .fraccion, entero., notacion cientifica)
+.5 + 3.
+-.25 + +.75
+1.5e-3 * 2E3
+.5e2 + 3.e-1
+// Funciones trigonometricas anidadas (una dentro de otra)
+sen(cos(tan(0.5)))
+tan(sin(cos(.5)) + 1.2e-2)
+cos(sen(x) + tan(y * 1e-1))
+// Precedencia, asociatividad y signos unarios
+-2^2 + 10 / 2 * 3
+2^3^2
+sin(-x + 0.5 * z) / (1 + cos(y)^2)
