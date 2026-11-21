@@ -1,6 +1,5 @@
 # Binarios y compilados de C/C++
 /build/
-/evaluador
 /test_unitarios
 *.o
 *.obj

@@ -25,6 +25,9 @@ all: $(TARGET)
 $(TARGET): $(CLI_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
+static: $(CLI_SRCS)
+	$(CXX) $(CXXFLAGS) -static -o $(TARGET) $^
+
 $(TEST_BIN): $(TEST_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
@@ -43,4 +46,4 @@ clean:
 
 rebuild: clean all
 
-.PHONY: all test clean rebuild
+.PHONY: all static test clean rebuild

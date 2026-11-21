@@ -19,9 +19,12 @@ Implementación del **Trabajo Práctico 3 de Compiladores**: diseño de una gram
 
 ## Compilación y Pruebas
 
+El repositorio incluye el binario `./evaluador` compilado de forma **estática** para Linux x86_64 / WSL (funciona en distintas versiones de distribución sin depender de `libstdc++` o `glibc`). Si necesitas recompilarlo en tu equipo (o en macOS / Windows con MinGW):
+
 ```bash
-make            # compila ./evaluador
-make test       # compila y ejecuta 53 verificaciones unitarias + lote de expresiones válidas
+make            # compila ./evaluador para tu sistema
+make static     # compila ./evaluador estático (portable entre versiones de Linux)
+make test       # compila y ejecuta 60 verificaciones unitarias + lote de expresiones válidas
 make clean      # elimina build/ y binarios
 ```
 
