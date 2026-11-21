@@ -191,14 +191,8 @@ $\#18$ & consume \texttt{VAR}, \textbf{avance}; retorna valor sustituido $p=q$. 
 \caption{Definición operativa de las entradas $\#1\text{--}\#18$ de la Matriz LL(1).}
 \end{table}
 
-\section{Decisión de Diseño y Algoritmo de Reconocimiento}
-\subsection*{¿Por qué se decidió implementar Descendente Recursivo sobre la Matriz LL(1)?}
-El enunciado permite implementar el reconocedor de forma recursiva o mediante autómata de pila. Se optó por \textbf{parser descendente recursivo} en \texttt{ParserTrigonometrico} (\texttt{trig\_parser.cpp}) porque ejecuta exactamente la \textbf{Matriz LL(1) $\#1\text{--}\#18$}, sustituyendo la pila explícita de símbolos por la \textbf{pila de llamadas de C++}:
-\begin{itemize}
-    \item \textbf{Correspondencia directa con la matriz:} cada fila de la matriz ($\langle E\rangle, \langle E'\rangle, \dots, \langle F\rangle$) es un método (\texttt{parseE}, \texttt{parseEPrima}, \dots, \texttt{parseF}), y el token actual (\texttt{actual().tipo}) selecciona la entrada $\#k$ exacta dentro de su \texttt{if}/\texttt{switch}.
-    \item \textbf{Flujo natural de atributos ($\uparrow$ y $\downarrow$):} los atributos \textbf{sintéticos} se devuelven directamente con \texttt{return double} y los \textbf{heredados} se pasan como parámetros (\texttt{acumulado}, \texttt{base}) a \texttt{parseEPrima}, \texttt{parseTPrima} y \texttt{parsePPrima}, evitando mantener una segunda pila semántica manual.
-    \item \textbf{Diagnósticos contextuales:} al estar en métodos específicos (\texttt{parseParentesis}, \texttt{parseFuncion}), cuando aparece un error se reporta con exactitud qué cierre o argumento faltó y en qué línea/columna se abrió.
-\end{itemize}
+\section{Descripción del Algoritmo de Reconocimiento}
+Se implementó un reconocedor descendente recursivo en \texttt{ParserTrigonometrico} (\texttt{trig\_parser.cpp}), donde cada fila de la Matriz LL(1) corresponde a un método (\texttt{parseE}, \texttt{parseEPrima}, \texttt{parseT}, \texttt{parseTPrima}, \texttt{parseU}, \texttt{parseP}, \texttt{parsePPrima}, \texttt{parseF}) y el token actual selecciona la entrada $\#k$ correspondiente.
 
 \subsection*{Flujo en dos pasadas y manejo de atributos}
 La clase \texttt{ServicioEvaluador} orquesta el proceso en tres etapas:
