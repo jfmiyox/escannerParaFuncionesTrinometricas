@@ -1,4 +1,4 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[10pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[spanish]{babel}
@@ -8,21 +8,23 @@
 \usepackage{array}
 \usepackage{float}
 \usepackage{listings}
-\usepackage{tikz}
-\usetikzlibrary{babel,arrows.meta,positioning}
 \usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{babel,arrows.meta,positioning}
 
-\geometry{margin=2.3cm}
+\geometry{margin=1.8cm, top=1.6cm, bottom=1.6cm}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
 
 \lstset{
-  basicstyle=\ttfamily\small,
+  basicstyle=\ttfamily\footnotesize,
   frame=single,
   breaklines=true,
   backgroundcolor=\color{gray!8},
-  keywordstyle=\color{blue!70!black}\bfseries,
-  commentstyle=\color{green!45!black},
-  showstringspaces=false
+  showstringspaces=false,
+  aboveskip=4pt,
+  belowskip=4pt
 }
 
 \title{\textbf{Informe Técnico — Trabajo Práctico 3}\\
@@ -34,115 +36,63 @@ Diseño de Gramática LL(1), Reconocedor Descendente y Evaluador para Expresione
 \maketitle
 
 \section{Introducción y Objetivos}
-El análisis sintáctico descendente constituye una de las técnicas fundamentales en la construcción de compiladores e intérpretes, permitiendo verificar la estructura gramatical de una entrada y, de manera simultánea, realizar su evaluación semántica mediante traducción dirigida por sintaxis.
-
-El presente trabajo implementa un módulo completo en C++17 capaz de analizar léxica y sintácticamente expresiones aritméticas y trigonométricas, detectar variables simbólicas, solicitar sus valores numéricos al usuario y calcular el resultado con precisión \texttt{double}, reutilizando la arquitectura limpia y el motor léxico AFD desarrollados previamente en \texttt{scanner\_c}.
+El análisis sintáctico descendente permite verificar la estructura gramatical de una expresión y evaluarla simultáneamente mediante traducción dirigida por sintaxis. Este proyecto implementa en C++17 un módulo completo capaz de tokenizar, validar sintácticamente y evaluar en precisión \texttt{double} expresiones aritméticas y trigonométricas con variables simbólicas, reutilizando el motor léxico AFD de \texttt{scanner\_c}.
 
 \subsection*{Objetivos}
 \begin{itemize}
-    \item Diseñar una gramática libre de contexto \textbf{LL(1)} sin ambigüedad ni recursividad izquierda para expresiones aritméticas y trigonométricas.
-    \item Reutilizar el analizador léxico AFD de \texttt{scanner\_c} mediante una especificación de lenguaje dedicada (\texttt{EspecificacionTrigonometrica}).
-    \item Implementar un reconocedor descendente recursivo que valide todas las reglas léxicas, sintácticas y matemáticas posibles.
-    \item Evaluar directamente las expresiones en precisión \texttt{double} sustituyendo variables simbólicas detectadas.
+    \item Diseñar una gramática \textbf{LL(1)} sin ambigüedad ni recursividad izquierda para operaciones aritméticas, potencias, signos unarios y funciones trigonométricas (\texttt{sin}/\texttt{sen}, \texttt{cos}, \texttt{tan}).
+    \item Reutilizar el analizador léxico \texttt{EscanerAFD} de \texttt{scanner\_c} con la especificación trigonométrica del lenguaje.
+    \item Implementar un reconocedor descendente recursivo con validación léxica, sintáctica y matemática completa.
+    \item Evaluar directamente la expresión sustituyendo los valores numéricos solicitados al usuario para cada variable detectada.
 \end{itemize}
 
-\section{Integración con el Analizador Léxico (\texttt{scanner\_c})}
-El proyecto \texttt{scanner\_c} separa el motor AFD (\texttt{EscanerAFD}) de la definición concreta del lenguaje a través de la interfaz \texttt{IEspecificacionLenguaje}. Gracias a este diseño, se reutilizó el motor AFD sin modificar su lógica de escaneo, añadiendo únicamente:
-\begin{itemize}
-    \item Las categorías \texttt{FN\_SIN}, \texttt{FN\_COS} y \texttt{FN\_TAN} en \texttt{TipoComponente}.
-    \item La clase \texttt{EspecificacionTrigonometrica}, que registra como palabras reservadas \texttt{sin}, \texttt{sen} (alias en español presente en los ejemplos del enunciado), \texttt{cos} y \texttt{tan}.
-    \item La validación \texttt{esTokenPermitido()}, que filtra tokens propios de C (como \texttt{;}, \texttt{=}, cadenas o literales hexadecimales) no válidos en expresiones trigonométricas.
-\end{itemize}
+\subsection*{Tokenización (\texttt{scanner\_c} + \texttt{EspecificacionTrigonometrica})}
+Se conservó intacto el motor \texttt{EscanerAFD}, agregando únicamente \texttt{FN\_SIN}, \texttt{FN\_COS} y \texttt{FN\_TAN} en \texttt{TipoComponente} y la clase \texttt{EspecificacionTrigonometrica}. Esta registra las palabras reservadas \texttt{sin}, \texttt{sen} (alias presente en el enunciado), \texttt{cos} y \texttt{tan}, y mediante \texttt{esTokenPermitido()} filtra tokens propios de C (\texttt{;}, \texttt{=}, cadenas, etc.) y literales hexadecimales. Los tokens válidos son: \texttt{FUNC} (\texttt{sin/sen/cos/tan}), operadores (\texttt{+}, \texttt{-}, \texttt{*}, \texttt{/}, \texttt{\^{}}), paréntesis (\texttt{(}, \texttt{)}), \texttt{NUM} (enteros, decimales y notación científica) y \texttt{VAR} (\texttt{ID}).
 
-\begin{table}[h!]
-\centering
-\small
-\begin{tabular}{lll}
-\toprule
-\textbf{Lexema} & \textbf{Token (\texttt{TipoComponente})} & \textbf{Rol en la gramática} \\
-\midrule
-\texttt{sin}, \texttt{sen}, \texttt{cos}, \texttt{tan} & \texttt{FN\_SIN}, \texttt{FN\_COS}, \texttt{FN\_TAN} & \texttt{FUNC} \\
-\texttt{+}, \texttt{-}, \texttt{*}, \texttt{/}, \texttt{\^{}} & \texttt{PLUS}, \texttt{MINUS}, \texttt{MUL\_OP}, \texttt{DIV\_OP}, \texttt{XOR\_OP} & Operadores / potencia \\
-\texttt{(}, \texttt{)} & \texttt{LPAR}, \texttt{RPAR} & Agrupación y argumentos \\
-Reales (\texttt{0}, \texttt{3.14}, \texttt{.5}, \texttt{3.}, \texttt{1.5e-3}) & \texttt{INT\_NUM}, \texttt{FLOAT\_NUM} & \texttt{NUM} \\
-Identificadores (\texttt{x}, \texttt{y}, \texttt{z}) & \texttt{ID} & \texttt{VAR} (variable simbólica) \\
-\bottomrule
-\end{tabular}
-\caption{Tabla de tokens del lenguaje de expresiones trigonométricas.}
-\end{table}
-
-\section{Diseño de la Gramática LL(1) con Atributos}
-Para respetar la precedencia matemática estándar —paréntesis y funciones primero, luego potencia (\texttt{\^{}}) con asociatividad derecha, luego signo unario (\texttt{+}/\texttt{-}), multiplicación/división y finalmente suma/resta— y eliminar la recursividad izquierda, se diseñó una \textbf{Gramática con Atributos} (atributos sintéticos y heredados) siguiendo la notación formal con subíndices ($p, q, r, s, t$):
-
-\begin{itemize}
-    \item \textbf{Atributos Sintéticos ($\uparrow$):} se calculan de \emph{abajo hacia arriba} en el árbol de derivación, y dentro de cada producción fluyen de \emph{derecha a izquierda} (hacia el no terminal de la cabeza).
-    \item \textbf{Atributos Heredados ($\downarrow$):} se mueven de \emph{izquierda a derecha} en el mismo nivel del árbol de derivación, o de \emph{arriba hacia abajo} en el árbol. En los no terminales recursivos a derecha ($\langle E'\rangle$, $\langle T'\rangle$, $\langle P'\rangle$), el par $_{p\downarrow,\,q\uparrow}$ indica que $p$ es el atributo heredado (acumulado recibido) y $q$ es el atributo sintético (resultado final devuelto).
-\end{itemize}
-
-\subsection{Gramática con Atributos (Reglas Semánticas)}
-Cada producción asocia ecuaciones semánticas sobre los atributos numéricos de sus símbolos, sin depender de acciones imperativas ni conversión de cadenas en las reglas:
+\section{Gramática LL(1) Diseñada}
+Para respetar la precedencia estándar —paréntesis y funciones $>$ potencia \texttt{\^{}} (asociativa a derecha) $>$ signo unario \texttt{+}/\texttt{-} $>$ \texttt{*}, \texttt{/} $>$ \texttt{+}, \texttt{-}— y eliminar la recursividad izquierda, se diseñó la siguiente gramática con atributos sintéticos ($\uparrow$, calculados de abajo hacia arriba) y heredados ($\downarrow$, pasados de izquierda a derecha como acumulado):
 
 \begin{table}[H]
 \centering
 \scriptsize
-\begin{tabular}{rll}
+\begin{tabular}{rll @{\hspace{1.2cm}} rll}
 \toprule
-\textbf{\#} & \textbf{Producción con atributos} & \textbf{Ecuaciones semánticas} \\
+\textbf{\#} & \textbf{Producción con atributos} & \textbf{Semántica} & \textbf{\#} & \textbf{Producción con atributos} & \textbf{Semántica} \\
 \midrule
-1  & $\langle E\rangle_p \rightarrow \langle T\rangle_q \, \langle E'\rangle_{t\downarrow,\,r\uparrow}$ & $t = q \,;\; p = r$ \\
-2  & $\langle E'\rangle_{p\downarrow,\,q\uparrow} \rightarrow + \, \langle T\rangle_r \, \langle E'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p + r \,;\; q = t$ \\
-3  & $\langle E'\rangle_{p\downarrow,\,q\uparrow} \rightarrow - \, \langle T\rangle_r \, \langle E'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p - r \,;\; q = t$ \\
-4  & $\langle E'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \lambda$ & $q = p$ \\
-\midrule
-5  & $\langle T\rangle_p \rightarrow \langle U\rangle_q \, \langle T'\rangle_{t\downarrow,\,r\uparrow}$ & $t = q \,;\; p = r$ \\
-6  & $\langle T'\rangle_{p\downarrow,\,q\uparrow} \rightarrow * \, \langle U\rangle_r \, \langle T'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p * r \,;\; q = t$ \\
-7  & $\langle T'\rangle_{p\downarrow,\,q\uparrow} \rightarrow / \, \langle U\rangle_r \, \langle T'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p / r \,;\; q = t \quad (r \neq 0)$ \\
-8  & $\langle T'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \lambda$ & $q = p$ \\
-\midrule
-9  & $\langle U\rangle_p \rightarrow + \, \langle U\rangle_q$ & $p = q$ \\
+1  & $\langle E\rangle_p \rightarrow \langle T\rangle_q \, \langle E'\rangle_{t\downarrow,\,r\uparrow}$ & $t = q \,;\; p = r$ &
 10 & $\langle U\rangle_p \rightarrow - \, \langle U\rangle_q$ & $p = -q$ \\
+2  & $\langle E'\rangle_{p\downarrow,\,q\uparrow} \rightarrow + \, \langle T\rangle_r \, \langle E'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p + r \,;\; q = t$ &
 11 & $\langle U\rangle_p \rightarrow \langle P\rangle_q$ & $p = q$ \\
-\midrule
+3  & $\langle E'\rangle_{p\downarrow,\,q\uparrow} \rightarrow - \, \langle T\rangle_r \, \langle E'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p - r \,;\; q = t$ &
 12 & $\langle P\rangle_p \rightarrow \langle F\rangle_q \, \langle P'\rangle_{t\downarrow,\,r\uparrow}$ & $t = q \,;\; p = r$ \\
+4  & $\langle E'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \varepsilon$ & $q = p$ &
 13 & $\langle P'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \texttt{\^{}} \, \langle U\rangle_r$ & $q = p^{\,r}$ \\
-14 & $\langle P'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \lambda$ & $q = p$ \\
-\midrule
+5  & $\langle T\rangle_p \rightarrow \langle U\rangle_q \, \langle T'\rangle_{t\downarrow,\,r\uparrow}$ & $t = q \,;\; p = r$ &
+14 & $\langle P'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \varepsilon$ & $q = p$ \\
+6  & $\langle T'\rangle_{p\downarrow,\,q\uparrow} \rightarrow * \, \langle U\rangle_r \, \langle T'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p * r \,;\; q = t$ &
 15 & $\langle F\rangle_p \rightarrow ( \, \langle E\rangle_q \, )$ & $p = q$ \\
+7  & $\langle T'\rangle_{p\downarrow,\,q\uparrow} \rightarrow / \, \langle U\rangle_r \, \langle T'\rangle_{s\downarrow,\,t\uparrow}$ & $s = p / r \,;\; q = t$ &
 16 & $\langle F\rangle_p \rightarrow \text{FUNC} \, ( \, \langle E\rangle_q \, )$ & $p = \text{FUNC}(q)$ \\
+8  & $\langle T'\rangle_{p\downarrow,\,q\uparrow} \rightarrow \varepsilon$ & $q = p$ &
 17 & $\langle F\rangle_p \rightarrow \text{NUM}_q$ & $p = q$ \\
+9  & $\langle U\rangle_p \rightarrow + \, \langle U\rangle_q$ & $p = q$ &
 18 & $\langle F\rangle_p \rightarrow \text{VAR}_q$ & $p = q$ \\
 \bottomrule
 \end{tabular}
-\caption{Gramática con atributos sintéticos ($\uparrow$) y heredados ($\downarrow$).}
+\caption{Gramática con atributos (18 producciones). Al omitir los subíndices se obtiene la gramática subyacente.}
 \end{table}
 
-\subsection{Gramática Subyacente (Sin Atributos)}
-Al omitir los subíndices de atributos se obtiene la gramática libre de contexto subyacente utilizada para calcular anulables, conjuntos \text{FIRST}, \text{FOLLOW} y \text{SELECT}:
+\noindent Ubicar el signo unario en $U$ y definir $P' \rightarrow \texttt{\^{}}\,U \mid \varepsilon$ permite que \texttt{-2\^{}2} $= -(2^2) = -4$, que \texttt{2\^{}-2} $= 0.25$ y que la potencia sea asociativa por la derecha (\texttt{2\^{}3\^{}2} $= 512$).
 
-\begin{align*}
-E  &\rightarrow T \, E' \\
-E' &\rightarrow + \, T \, E' \;\mid\; - \, T \, E' \;\mid\; \varepsilon \\
-T  &\rightarrow U \, T' \\
-T' &\rightarrow * \, U \, T' \;\mid\; / \, U \, T' \;\mid\; \varepsilon \\
-U  &\rightarrow + \, U \;\mid\; - \, U \;\mid\; P \\
-P  &\rightarrow F \, P' \\
-P' &\rightarrow \texttt{\^{}} \, U \;\mid\; \varepsilon \\
-F  &\rightarrow ( \, E \, ) \;\mid\; \text{FUNC} \, ( \, E \, ) \;\mid\; \text{NUM} \;\mid\; \text{VAR}
-\end{align*}
+\subsection*{Conjuntos PRIMEROS, SIGUIENTES, SELECCIÓN y Verificación LL(1)}
+Los no terminales anulables son $\text{Nonul} = \{E', T', P'\}$. Para cada producción $A \rightarrow \alpha$, $\text{SELECT}(A \rightarrow \alpha) = \text{FIRST}(\alpha)$ si $\varepsilon \notin \text{FIRST}(\alpha)$, o $(\text{FIRST}(\alpha) \setminus \{\varepsilon\}) \cup \text{FOLLOW}(A)$ en caso contrario.
 
-\noindent Nótese que ubicar el signo unario en $U$ y hacer $P' \rightarrow \texttt{\^{}}\,U \mid \varepsilon$ logra simultáneamente que \texttt{-2\^{}2} se evalúe como $-(2^2) = -4$ y que \texttt{2\^{}-2} sea válido y evalúe a $2^{-2} = 0.25$, además de garantizar asociatividad derecha en \texttt{2\^{}3\^{}2} $= 2^{(3^2)} = 512$.
-
-\subsection{Conjuntos FIRST (Primeros), FOLLOW (Siguientes) y Anulables}
-Antes de calcular \text{FIRST} y \text{FOLLOW}, se identifican los símbolos y producciones anulables (que derivan $\varepsilon$):
-\[
-\text{Nonul} = \{E', T', P'\}, \qquad \text{Panul} = \{4, 8, 14\}
-\]
 \begin{table}[H]
 \centering
-\small
+\scriptsize
 \begin{tabular}{lll}
 \toprule
-\textbf{No terminal} & \textbf{PRIMEROS ($\text{FIRST}$)} & \textbf{SIGUIENTES ($\text{FOLLOW}$)} \\
+\textbf{NT} & \textbf{$\text{FIRST}(NT)$} & \textbf{$\text{FOLLOW}(NT)$} \\
 \midrule
 $E$  & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ & $\{\$, )\}$ \\
 $E'$ & $\{+, -, \varepsilon\}$ & $\{\$, )\}$ \\
@@ -154,135 +104,128 @@ $P'$ & $\{\texttt{\^{}}, \varepsilon\}$ & $\{*, /, +, -, \$, )\}$ \\
 $F$  & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$ & $\{\texttt{\^{}}, *, /, +, -, \$, )\}$ \\
 \bottomrule
 \end{tabular}
-\caption{Conjuntos PRIMEROS y SIGUIENTES de cada no terminal.}
+\caption{Conjuntos PRIMEROS ($\text{FIRST}$) y SIGUIENTES ($\text{FOLLOW}$).}
 \end{table}
-
-\subsection{Conjuntos PRIMEROS y de SELECCIÓN por Producción (Prueba LL(1))}
-Para cada producción $A \rightarrow \alpha$, el conjunto de selección se define como:
-\[
-\text{SELECCIÓN}(A \rightarrow \alpha) =
-\begin{cases}
-\text{FIRST}(\alpha) & \text{si } \varepsilon \notin \text{FIRST}(\alpha) \\
-\big(\text{FIRST}(\alpha) \setminus \{\varepsilon\}\big) \cup \text{FOLLOW}(A) & \text{si } \varepsilon \in \text{FIRST}(\alpha)
-\end{cases}
-\]
 
 \begin{table}[H]
 \centering
 \scriptsize
-\begin{tabular}{rlll}
+\begin{tabular}{rll @{\hspace{0.7cm}} rll}
 \toprule
-\textbf{\#} & \textbf{Producción ($A \rightarrow \alpha$)} & \textbf{PRIMEROS ($\text{FIRST}(\alpha)$)} & \textbf{SELECCIÓN ($\text{SELECT}$)} \\
+\textbf{\#} & \textbf{Producción} & \textbf{$\text{SELECT}$} & \textbf{\#} & \textbf{Producción} & \textbf{$\text{SELECT}$} \\
 \midrule
-1  & $E \rightarrow T\,E'$            & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ \\
-2  & $E' \rightarrow +\,T\,E'$        & $\{+\}$                                            & $\{+\}$ \\
-3  & $E' \rightarrow -\,T\,E'$        & $\{-\}$                                            & $\{-\}$ \\
-4  & $E' \rightarrow \varepsilon$     & $\{\varepsilon\}$                                  & $\{\$, )\}$ \\
-\midrule
-5  & $T \rightarrow U\,T'$            & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ \\
-6  & $T' \rightarrow *\,U\,T'$        & $\{*\}$                                            & $\{*\}$ \\
-7  & $T' \rightarrow /\,U\,T'$        & $\{/\}$                                            & $\{/\}$ \\
-8  & $T' \rightarrow \varepsilon$     & $\{\varepsilon\}$                                  & $\{+, -, \$, )\}$ \\
-\midrule
-9  & $U \rightarrow +\,U$             & $\{+\}$                                            & $\{+\}$ \\
-10 & $U \rightarrow -\,U$             & $\{-\}$                                            & $\{-\}$ \\
-11 & $U \rightarrow P$                & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$       & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$ \\
-\midrule
-12 & $P \rightarrow F\,P'$            & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$       & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$ \\
-13 & $P' \rightarrow \texttt{\^{}}\,U$ & $\{\texttt{\^{}}\}$                               & $\{\texttt{\^{}}\}$ \\
-14 & $P' \rightarrow \varepsilon$     & $\{\varepsilon\}$                                  & $\{*, /, +, -, \$, )\}$ \\
-\midrule
-15 & $F \rightarrow (\,E\,)$          & $\{(\}$                                            & $\{(\}$ \\
-16 & $F \rightarrow \text{FUNC}\,(\,E\,)$ & $\{\text{FUNC}\}$                              & $\{\text{FUNC}\}$ \\
-17 & $F \rightarrow \text{NUM}$       & $\{\text{NUM}\}$                                   & $\{\text{NUM}\}$ \\
-18 & $F \rightarrow \text{VAR}$       & $\{\text{VAR}\}$                                   & $\{\text{VAR}\}$ \\
+1  & $E \rightarrow T\,E'$        & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ &
+10 & $U \rightarrow -\,U$         & $\{-\}$ \\
+2  & $E' \rightarrow +\,T\,E'$    & $\{+\}$ &
+11 & $U \rightarrow P$            & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$ \\
+3  & $E' \rightarrow -\,T\,E'$    & $\{-\}$ &
+12 & $P \rightarrow F\,P'$        & $\{(, \text{FUNC}, \text{NUM}, \text{VAR}\}$ \\
+4  & $E' \rightarrow \varepsilon$ & $\{\$, )\}$ &
+13 & $P' \rightarrow \texttt{\^{}}\,U$ & $\{\texttt{\^{}}\}$ \\
+5  & $T \rightarrow U\,T'$        & $\{+, -, (, \text{FUNC}, \text{NUM}, \text{VAR}\}$ &
+14 & $P' \rightarrow \varepsilon$ & $\{*, /, +, -, \$, )\}$ \\
+6  & $T' \rightarrow *\,U\,T'$    & $\{*\}$ &
+15 & $F \rightarrow (\,E\,)$      & $\{(\}$ \\
+7  & $T' \rightarrow /\,U\,T'$    & $\{/\}$ &
+16 & $F \rightarrow \text{FUNC}\,(\,E\,)$ & $\{\text{FUNC}\}$ \\
+8  & $T' \rightarrow \varepsilon$ & $\{+, -, \$, )\}$ &
+17 & $F \rightarrow \text{NUM}$   & $\{\text{NUM}\}$ \\
+9  & $U \rightarrow +\,U$         & $\{+\}$ &
+18 & $F \rightarrow \text{VAR}$   & $\{\text{VAR}\}$ \\
 \bottomrule
 \end{tabular}
-\caption{PRIMEROS y conjuntos de SELECCIÓN para cada una de las 18 producciones.}
+\caption{Conjuntos de SELECCIÓN por producción. Todos los pares de alternativas por no terminal son disjuntos ($\text{SELECT}_i \cap \text{SELECT}_j = \varnothing$), por lo que la gramática es estrictamente LL(1).}
 \end{table}
 
-\noindent\textbf{Verificación de la condición LL(1) (disyunción por no terminal):}
+\subsection*{Matriz de Decisión LL(1) (Estilo Numerado $\#1\text{--}\#18$)}
+Para reconocer en todo momento a qué producción o método dirigirse según el símbolo no terminal activo y el token actual de entrada (\emph{lookahead}, incluyendo $\dashv$ como fin de entrada), se construyó la siguiente matriz LL(1) sin conflictos:
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{lccccccccccc}
+\toprule
+\textbf{NT} & \texttt{+} & \texttt{-} & \texttt{*} & \texttt{/} & \texttt{\^{}} & \texttt{(} & \texttt{)} & \texttt{FUNC} & \texttt{NUM} & \texttt{VAR} & $\dashv$ \\
+\midrule
+$\langle E\rangle$  & $\#1$ & $\#1$ & & & & $\#1$ & & $\#1$ & $\#1$ & $\#1$ & \\
+$\langle E'\rangle$ & $\#2$ & $\#3$ & & & & & $\#4$ & & & & $\#4$ \\
+$\langle T\rangle$  & $\#5$ & $\#5$ & & & & $\#5$ & & $\#5$ & $\#5$ & $\#5$ & \\
+$\langle T'\rangle$ & $\#8$ & $\#8$ & $\#6$ & $\#7$ & & & $\#8$ & & & & $\#8$ \\
+$\langle U\rangle$  & $\#9$ & $\#10$ & & & & $\#11$ & & $\#11$ & $\#11$ & $\#11$ & \\
+$\langle P\rangle$  & & & & & & $\#12$ & & $\#12$ & $\#12$ & $\#12$ & \\
+$\langle P'\rangle$ & $\#14$ & $\#14$ & $\#14$ & $\#14$ & $\#13$ & & $\#14$ & & & & $\#14$ \\
+$\langle F\rangle$  & & & & & & $\#15$ & & $\#16$ & $\#17$ & $\#18$ & \\
+\bottomrule
+\end{tabular}
+\caption{Matriz LL(1) numerada: cada número indica la acción y transición exacta (celda vacía = error sintáctico).}
+\end{table}
+
+\noindent\textbf{Acciones de cada entrada de la matriz (descenso recursivo con \emph{avance} y \emph{retenga}):}
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{rl}
+\toprule
+\textbf{\#} & \textbf{Acción al reconocer la celda (método, lectura de token y flujo de atributos)} \\
+\midrule
+$\#1$  & \textbf{retenga}; llama \texttt{parseT()} ($q$), pasa $t=q$ como heredado a \texttt{parseEPrima($t$)}, retorna $p=r$. \\
+$\#2$  & consume \texttt{+}, \textbf{avance}; llama \texttt{parseT()} ($r$), calcula $s=p+r$, llama \texttt{parseEPrima($s$)}, retorna $q=t$. \\
+$\#3$  & consume \texttt{-}, \textbf{avance}; llama \texttt{parseT()} ($r$), calcula $s=p-r$, llama \texttt{parseEPrima($s$)}, retorna $q=t$. \\
+$\#4$  & caso $\lambda$, \textbf{retenga} (\texttt{)} o $\dashv$); retorna acumulado $q=p$. \\
+$\#5$  & \textbf{retenga}; llama \texttt{parseU()} ($q$), pasa $t=q$ como heredado a \texttt{parseTPrima($t$)}, retorna $p=r$. \\
+$\#6$  & consume \texttt{*}, \textbf{avance}; llama \texttt{parseU()} ($r$), calcula $s=p*r$, llama \texttt{parseTPrima($s$)}, retorna $q=t$. \\
+$\#7$  & consume \texttt{/}, \textbf{avance}; llama \texttt{parseU()} ($r\neq 0$), calcula $s=p/r$, llama \texttt{parseTPrima($s$)}, retorna $q=t$. \\
+$\#8$  & caso $\lambda$, \textbf{retenga} (\texttt{+}, \texttt{-}, \texttt{)} o $\dashv$); retorna acumulado $q=p$. \\
+$\#9$  & consume \texttt{+}, \textbf{avance}; llama recursivo a \texttt{parseU()} ($q$), retorna $p=q$. \\
+$\#10$ & consume \texttt{-}, \textbf{avance}; llama recursivo a \texttt{parseU()} ($q$), retorna $p=-q$. \\
+$\#11$ & \textbf{retenga}; llama \texttt{parseP()} ($q$), retorna $p=q$. \\
+$\#12$ & \textbf{retenga}; llama \texttt{parseF()} ($q$), pasa $t=q$ como base a \texttt{parsePPrima($t$)}, retorna $p=r$. \\
+$\#13$ & consume \texttt{\^{}}, \textbf{avance}; llama \texttt{parseU()} ($r$), retorna $q=p^{\,r}$ (asociatividad derecha). \\
+$\#14$ & caso $\lambda$, \textbf{retenga} (\texttt{*}, \texttt{/}, \texttt{+}, \texttt{-}, \texttt{)} o $\dashv$); retorna base $q=p$. \\
+$\#15$ & consume \texttt{(}, \textbf{avance}; llama \texttt{parseE()} ($q$), verifica y consume \texttt{)}, \textbf{avance}; retorna $p=q$. \\
+$\#16$ & consume \texttt{FUNC} y \texttt{(}, \textbf{avance}; llama \texttt{parseE()} ($q$), verifica y consume \texttt{)}, \textbf{avance}; retorna $p=\text{FUNC}(q)$. \\
+$\#17$ & consume \texttt{NUM}, \textbf{avance}; retorna valor numérico $p=q$. \\
+$\#18$ & consume \texttt{VAR}, \textbf{avance}; retorna valor sustituido $p=q$. \\
+\bottomrule
+\end{tabular}
+\caption{Definición operativa de las entradas $\#1\text{--}\#18$ de la Matriz LL(1).}
+\end{table}
+
+\section{Decisión de Diseño y Algoritmo de Reconocimiento}
+\subsection*{¿Por qué se decidió implementar Descendente Recursivo sobre la Matriz LL(1)?}
+El enunciado permite implementar el reconocedor de forma recursiva o mediante autómata de pila. Se optó por \textbf{parser descendente recursivo} en \texttt{ParserTrigonometrico} (\texttt{trig\_parser.cpp}) porque ejecuta exactamente la \textbf{Matriz LL(1) $\#1\text{--}\#18$}, sustituyendo la pila explícita de símbolos por la \textbf{pila de llamadas de C++}:
 \begin{itemize}
-    \item \textbf{Para $E'$:} $\text{SELECT}(2) = \{+\}$, $\text{SELECT}(3) = \{-\}$, $\text{SELECT}(4) = \{\$, )\} \implies$ intersección dos a dos $= \varnothing$.
-    \item \textbf{Para $T'$:} $\text{SELECT}(6) = \{*\}$, $\text{SELECT}(7) = \{/\}$, $\text{SELECT}(8) = \{+, -, \$, )\} \implies$ intersección dos a dos $= \varnothing$.
-    \item \textbf{Para $U$:} $\text{SELECT}(9) = \{+\}$, $\text{SELECT}(10) = \{-\}$, $\text{SELECT}(11) = \{(, \text{FUNC}, \text{NUM}, \text{VAR}\} \implies$ intersección dos a dos $= \varnothing$.
-    \item \textbf{Para $P'$:} $\text{SELECT}(13) = \{\texttt{\^{}}\}$, $\text{SELECT}(14) = \{*, /, +, -, \$, )\} \implies$ intersección $= \varnothing$.
-    \item \textbf{Para $F$:} $\text{SELECT}(15) = \{(\}$, $\text{SELECT}(16) = \{\text{FUNC}\}$, $\text{SELECT}(17) = \{\text{NUM}\}$, $\text{SELECT}(18) = \{\text{VAR}\} \implies$ intersección dos a dos $= \varnothing$.
+    \item \textbf{Correspondencia directa con la matriz:} cada fila de la matriz ($\langle E\rangle, \langle E'\rangle, \dots, \langle F\rangle$) es un método (\texttt{parseE}, \texttt{parseEPrima}, \dots, \texttt{parseF}), y el token actual (\texttt{actual().tipo}) selecciona la entrada $\#k$ exacta dentro de su \texttt{if}/\texttt{switch}.
+    \item \textbf{Flujo natural de atributos ($\uparrow$ y $\downarrow$):} los atributos \textbf{sintéticos} se devuelven directamente con \texttt{return double} y los \textbf{heredados} se pasan como parámetros (\texttt{acumulado}, \texttt{base}) a \texttt{parseEPrima}, \texttt{parseTPrima} y \texttt{parsePPrima}, evitando mantener una segunda pila semántica manual.
+    \item \textbf{Diagnósticos contextuales:} al estar en métodos específicos (\texttt{parseParentesis}, \texttt{parseFuncion}), cuando aparece un error se reporta con exactitud qué cierre o argumento faltó y en qué línea/columna se abrió.
 \end{itemize}
-Los no terminales $E$, $T$ y $P$ poseen una única producción. En consecuencia, la gramática cumple estrictamente la definición formal de \textbf{gramática LL(1)}.
 
-\subsection{Tabla de Análisis Sintáctico LL(1)}
-A partir de los conjuntos de selección se construye directamente la tabla LL(1) sin ningún conflicto múltiple:
-
-\begin{table}[H]
-\centering
-\scriptsize
-\begin{tabular}{lcccccccccc}
-\toprule
-\textbf{NT} & \texttt{+} & \texttt{-} & \texttt{*} & \texttt{/} & \texttt{\^{}} & \texttt{(} & \texttt{)} & \texttt{FUNC} & \texttt{NUM/VAR} & \texttt{\$} \\
-\midrule
-$E$  & $TE'$ & $TE'$ & & & & $TE'$ & & $TE'$ & $TE'$ & \\
-$E'$ & $+TE'$ & $-TE'$ & & & & & $\varepsilon$ & & & $\varepsilon$ \\
-$T$  & $UT'$ & $UT'$ & & & & $UT'$ & & $UT'$ & $UT'$ & \\
-$T'$ & $\varepsilon$ & $\varepsilon$ & $*UT'$ & $/UT'$ & & & $\varepsilon$ & & & $\varepsilon$ \\
-$U$  & $+U$ & $-U$ & & & & $P$ & & $P$ & $P$ & \\
-$P$  & & & & & & $FP'$ & & $FP'$ & $FP'$ & \\
-$P'$ & $\varepsilon$ & $\varepsilon$ & $\varepsilon$ & $\varepsilon$ & $\texttt{\^{}}U$ & & $\varepsilon$ & & & $\varepsilon$ \\
-$F$  & & & & & & $(E)$ & & $\text{FUNC}(E)$ & $\text{NUM}/\text{VAR}$ & \\
-\bottomrule
-\end{tabular}
-\caption{Tabla LL(1) sin conflictos (cada celda contiene a lo sumo una producción).}
-\end{table}
-
-\section{Algoritmo de Reconocimiento y Evaluación Semántica}
-Se implementó un \textbf{parser descendente recursivo} en la clase \texttt{ParserTrigonometrico} (archivo \texttt{trig\_parser.cpp}). Cada no terminal corresponde directamente a un método (\texttt{parseE}, \texttt{parseEPrima}, \texttt{parseT}, \texttt{parseTPrima}, \texttt{parseU}, \texttt{parseP}, \texttt{parsePPrima}, \texttt{parseF}).
-
-El flujo de ejecución en \texttt{ServicioEvaluador} consta de tres pasos ordenados:
+\subsection*{Flujo en dos pasadas y manejo de atributos}
+La clase \texttt{ServicioEvaluador} orquesta el proceso en tres etapas:
 \begin{enumerate}
-    \item \textbf{Tokenización y filtrado léxico:} \texttt{EscanerAFD} convierte la cadena de entrada en tokens y omite comentarios \texttt{//}. Se verifica que no haya errores léxicos ni tokens ajenos al lenguaje.
-    \item \textbf{Validación sintáctica LL(1) y detección de variables:} se ejecuta el descenso recursivo en modo validación (\texttt{validarYDetectarVariables()}). Si la expresión tiene errores de sintaxis, se reportan inmediatamente con línea y columna antes de solicitar variables al usuario. Si es válida, se registran las variables únicas en orden de aparición.
-    \item \textbf{Sustitución y evaluación directa:} se solicitan al usuario los valores reales de las variables detectadas (validando formato decimal estricto) y se ejecuta \texttt{evaluar()}, calculando directamente el valor \texttt{double} durante el descenso recursivo mediante \texttt{std::sin}, \texttt{std::cos}, \texttt{std::tan} y \texttt{std::pow} de \texttt{<cmath>}.
+    \item \textbf{Análisis léxico:} \texttt{EscanerAFD} genera los tokens (ignorando comentarios \texttt{//}) y \texttt{validarTokensEntrada()} verifica que no existan caracteres desconocidos, tokens de C ni literales hexadecimales.
+    \item \textbf{Pasada 1 — Validación LL(1) y detección de variables (\texttt{validarYDetectarVariables()}):} ejecuta el descenso recursivo con \texttt{evaluando\_ = false}. Verifica la sintaxis completa hasta \texttt{END\_OF\_FILE} y recolecta en \texttt{variables\_} los identificadores únicos en orden de aparición. Si hay error sintáctico, se reporta inmediatamente (línea, columna y lexema) sin pedir variables.
+    \item \textbf{Pasada 2 — Evaluación directa (\texttt{evaluar()}):} solicita al usuario un valor real por cada variable (validando formato decimal o científico) y vuelve a ejecutar el descenso recursivo con \texttt{evaluando\_ = true}:
+    \begin{itemize}
+        \item \textbf{Atributos sintéticos ($\uparrow$):} cada método \texttt{parse*()} retorna su resultado \texttt{double}.
+        \item \textbf{Atributos heredados ($\downarrow$):} \texttt{parseE}, \texttt{parseT} y \texttt{parseP} pasan el operando izquierdo como parámetro (\texttt{acumulado} o \texttt{base}) a \texttt{parseEPrima}, \texttt{parseTPrima} y \texttt{parsePPrima}. En \texttt{parseEPrima}/\texttt{parseTPrima} se opera antes de la recursión de cola (asociatividad izquierda); en \texttt{parsePPrima} se evalúa primero el exponente con \texttt{parseU()} y luego \texttt{std::pow} (asociatividad derecha).
+        \item \textbf{Unidad angular:} soporta \textbf{Radianes} (por defecto) o \textbf{Grados} (\texttt{-g} / comando \texttt{grados}), aplicando $\text{rad} = \text{grados} \cdot \pi/180$ únicamente dentro de \texttt{aplicarFuncion()} sin alterar la gramática.
+    \end{itemize}
 \end{enumerate}
 
-\subsection{Cómo se corresponden los atributos con el Parser Recursivo}
-En \texttt{trig\_parser.cpp}, cada regla atribuida se ejecuta directamente sin tabla de acciones aparte:
-\begin{itemize}
-    \item \textbf{Atributos Sintéticos ($\uparrow$):} son los valores \texttt{double} que \textbf{retornan} los métodos \texttt{parseE()}, \texttt{parseT()}, \texttt{parseU()}, \texttt{parseP()}, \texttt{parseF()}, \texttt{parseEPrima()}, \texttt{parseTPrima()} y \texttt{parsePPrima()} (flujo de abajo hacia arriba en el árbol).
-    \item \textbf{Atributos Heredados ($\downarrow$):} son los \textbf{parámetros} \texttt{acumulado} y \texttt{base} que \texttt{parseE} pasa a \texttt{parseEPrima(acum)}, \texttt{parseT} a \texttt{parseTPrima(acum)} y \texttt{parseP} a \texttt{parsePPrima(base)} (flujo de izquierda a derecha en el mismo nivel del árbol).
-    \item \textbf{Unidad angular (Radianes / Grados):} la gramática LL(1) no cambia; el usuario puede seleccionar entre \textbf{Radianes} (por defecto) y \textbf{Grados} (\texttt{-g} o comando \texttt{grados} en modo interactivo). La conversión $\text{rad} = \text{grados} \cdot \pi / 180$ ocurre únicamente dentro de la evaluación semántica de $\langle F\rangle_p \rightarrow \text{FUNC}(\langle E\rangle_q)$, afectando solo al argumento de \texttt{sin/sen}, \texttt{cos} y \texttt{tan}.
-    \item \textbf{Momento de cada operación:} en $\langle E'\rangle_{p\downarrow, q\uparrow} \rightarrow +\,\langle T\rangle_r\,\langle E'\rangle_{s\downarrow, t\uparrow}$ se calcula $s = p + r$ justo al obtener el atributo sintético $r$ de $\langle T\rangle_r$ y antes de pasar $s$ como atributo heredado al siguiente $\langle E'\rangle$; en $\langle P'\rangle_{p\downarrow, q\uparrow} \rightarrow \texttt{\^{}}\,\langle U\rangle_r$ se evalúa primero $r$ y luego $q = p^r$ (asociatividad derecha); y en $\langle F\rangle_p \rightarrow \text{FUNC}(\langle E\rangle_q)$ se evalúa $p = \text{FUNC}(q)$ al retornar $q$ de $\langle E\rangle_q$.
-\end{itemize}
-
-\subsection{Ejemplo de Derivación y Árbol con Atributos (Estilo Pizarra)}
-Considérese la expresión del enunciado: \texttt{sen(3.14 / 2) + cos(0) * 2\^{}2} (usando aproximación visual de $\sin(1.57) \approx 0.99999968$ para claridad en los nodos).
-
-\subsubsection*{Derivación a la izquierda (secuencia de producciones aplicadas)}
-\[
-\begin{aligned}
-\langle E\rangle &\overset{1}{\Longrightarrow} \langle T\rangle\,\langle E'\rangle
-\overset{5}{\Longrightarrow} \langle U\rangle\,\langle T'\rangle\,\langle E'\rangle
-\overset{11}{\Longrightarrow} \langle P\rangle\,\langle T'\rangle\,\langle E'\rangle
-\overset{12}{\Longrightarrow} \langle F\rangle\,\langle P'\rangle\,\langle T'\rangle\,\langle E'\rangle \\
-&\overset{16}{\Longrightarrow} \text{sen}(\langle E\rangle)\,\langle P'\rangle\,\langle T'\rangle\,\langle E'\rangle
-\overset{1,5,11,12,17,14}{\Longrightarrow} \text{sen}(3.14\,\langle T'\rangle)\,\langle P'\rangle\,\langle T'\rangle\,\langle E'\rangle \\
-&\overset{7,11,12,17,14,8,4}{\Longrightarrow} \text{sen}(3.14 / 2)\,\langle P'\rangle\,\langle T'\rangle\,\langle E'\rangle
-\overset{14,8}{\Longrightarrow} \text{sen}(3.14 / 2)\,\langle E'\rangle \\
-&\overset{2}{\Longrightarrow} \text{sen}(3.14 / 2) + \langle T\rangle\,\langle E'\rangle
-\overset{5,11,12,16,17,\dots}{\Longrightarrow} \text{sen}(3.14 / 2) + \cos(0)\,\langle P'\rangle\,\langle T'\rangle\,\langle E'\rangle \\
-&\overset{14,6}{\Longrightarrow} \text{sen}(3.14 / 2) + \cos(0) * \langle U\rangle\,\langle T'\rangle\,\langle E'\rangle \\
-&\overset{11,12,17}{\Longrightarrow} \text{sen}(3.14 / 2) + \cos(0) * 2\,\langle P'\rangle\,\langle T'\rangle\,\langle E'\rangle \\
-&\overset{13,11,12,17,14}{\Longrightarrow} \text{sen}(3.14 / 2) + \cos(0) * 2\texttt{\^{}}2\,\langle T'\rangle\,\langle E'\rangle
-\overset{8,4}{\Longrightarrow} \text{sen}(3.14 / 2) + \cos(0) * 2\texttt{\^{}}2
-\end{aligned}
-\]
-
-\subsubsection*{Árbol de derivación con flujo de atributos sintéticos ($\uparrow$) y heredados ($\downarrow$)}
-La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase: las flechas \textbf{continuas} muestran la derivación sintáctica, las flechas \textbf{azules} indican el paso de atributos \textbf{sintéticos ($\uparrow$, de abajo hacia arriba)} y las flechas \textbf{rojas punteadas} indican el paso de atributos \textbf{heredados ($\downarrow$, de izquierda a derecha o de arriba hacia abajo)}:
+\subsection*{Ejemplo de traza y grafo de atributos: \texttt{sen(3.14 / 2) + cos(0) * 2\^{}2}}
+\begin{enumerate}
+    \item \texttt{parseE()} ($\#1$) $\rightarrow$ \texttt{parseT()} ($\#5$) $\rightarrow$ \texttt{parseU()} ($\#11$) $\rightarrow$ \texttt{parseP()} ($\#12$) $\rightarrow$ \texttt{parseF()} ($\#16$) detecta \texttt{sen}, consume \texttt{(} y llama recursivamente a \texttt{parseE()} para el argumento.
+    \item Dentro del argumento: \texttt{parseF()} ($\#17$) lee \texttt{3.14}, lo pasa como \texttt{acumulado} a \texttt{parseTPrima(3.14)} ($\#7$), consume \texttt{/} y \texttt{2}, calcula $3.14 / 2 = 1.57$ y retorna a \texttt{parseFuncion()}, que consume \texttt{)} y calcula $\sin(1.57) \approx 0.99999968$.
+    \item \texttt{parseE()} pasa ese resultado a \texttt{parseEPrima(0.99999968)} ($\#2$), que consume \texttt{+} y llama a \texttt{parseT()} ($\#5$).
+    \item \texttt{parseT()} evalúa \texttt{cos(0)} ($\#16$) $= 1.0$, lo pasa a \texttt{parseTPrima(1.0)} ($\#6$), consume \texttt{*} y llama a \texttt{parseU()} $\rightarrow$ \texttt{parseP()}, donde \texttt{parsePPrima(2.0)} ($\#13$) calcula $2^2 = 4.0$.
+    \item \texttt{parseTPrima(1.0)} multiplica $1.0 \times 4.0 = 4.0$ ($\#8$ en $\lambda$) y retorna a \texttt{parseEPrima}, que suma $0.99999968 + 4.0 = 4.99999968$ ($\#4$ en $\lambda$).
+\end{enumerate}
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  scale=0.71,
+  scale=0.70,
   transform shape,
   nt/.style={rectangle,rounded corners=2pt,draw=black!75,fill=blue!4,align=center,font=\scriptsize,inner sep=3pt},
   tok/.style={font=\scriptsize\ttfamily,inner sep=2pt},
@@ -290,39 +233,34 @@ La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase
   syn/.style={->,>=Stealth,thick,draw=blue!75!black},
   inh/.style={->,>=Stealth,dashed,thick,draw=red!75!black}
 ]
-% Raiz
 \node[nt] (E) {$\langle E\rangle_{4.99999968}$};
-
-% Nivel 1: T y E'
-\node[nt, below left=1.1cm and 3.1cm of E] (T1) {$\langle T\rangle_{0.99999968}$};
-\node[nt, below right=1.1cm and 2.8cm of E] (Ep1) {$\langle E'\rangle_{0.99999968\downarrow,\,4.99999968\uparrow}$};
-
+\node[nt, below left=1.0cm and 3.0cm of E] (T1) {$\langle T\rangle_{0.99999968}$};
+\node[nt, below right=1.0cm and 2.7cm of E] (Ep1) {$\langle E'\rangle_{0.99999968\downarrow,\,4.99999968\uparrow}$};
 \draw[der] (E) -- (T1);
 \draw[der] (E) -- (Ep1);
 \draw[inh] (T1) to[bend left=14] node[above,font=\tiny\color{red!75!black}]{$t=q$} (Ep1);
 \draw[syn] (Ep1) to[bend right=18] node[right,font=\tiny\color{blue!75!black}]{$p=r$} (E);
 
-% Subarbol izquierdo: sen(3.14 / 2)
-\node[nt, below left=1.0cm and 0.8cm of T1] (F1) {$\langle F\rangle_{0.99999968}$};
-\node[nt, below right=1.0cm and 0.4cm of T1] (Tp1) {$\langle T'\rangle_{0.99999968\downarrow,\,0.99999968\uparrow}$};
-\node[tok, below=0.75cm of Tp1] (lam1) {$\lambda$};
+\node[nt, below left=0.95cm and 0.75cm of T1] (F1) {$\langle F\rangle_{0.99999968}$};
+\node[nt, below right=0.95cm and 0.4cm of T1] (Tp1) {$\langle T'\rangle_{0.99999968\downarrow,\,0.99999968\uparrow}$};
+\node[tok, below=0.65cm of Tp1] (lam1) {$\lambda$};
 \draw[der] (T1) -- (F1);
 \draw[der] (T1) -- (Tp1);
 \draw[der] (Tp1) -- (lam1);
 \draw[inh] (F1) to[bend left=12] node[above,font=\tiny\color{red!75!black}]{$t=q$} (Tp1);
 \draw[syn] (Tp1) to[bend right=15] node[right,font=\tiny\color{blue!75!black}]{$\uparrow$} (T1);
 
-\node[tok, below left=0.85cm and 0.9cm of F1] (senTok) {sen(};
-\node[nt, below=0.85cm of F1] (Earg) {$\langle E\rangle_{1.57}$};
-\node[tok, below right=0.85cm and 0.9cm of F1] (rpar1) {)};
+\node[tok, below left=0.8cm and 0.85cm of F1] (senTok) {sen(};
+\node[nt, below=0.8cm of F1] (Earg) {$\langle E\rangle_{1.57}$};
+\node[tok, below right=0.8cm and 0.85cm of F1] (rpar1) {)};
 \draw[der] (F1) -- (senTok);
 \draw[der] (F1) -- (Earg);
 \draw[der] (F1) -- (rpar1);
-\draw[syn] (Earg) to[bend right=26] node[right,font=\tiny\color{blue!75!black}]{$\sin(1.57)$} (F1);
+\draw[syn] (Earg) to[bend right=25] node[right,font=\tiny\color{blue!75!black}]{$\sin(1.57)$} (F1);
 
-\node[nt, below left=0.95cm and 0.5cm of Earg] (F314) {$\langle F\rangle_{3.14}$};
-\node[nt, below right=0.95cm and 0.4cm of Earg] (TpDiv) {$\langle T'\rangle_{3.14\downarrow,\,1.57\uparrow}$};
-\node[tok, below=0.7cm of F314] (n314) {3.14$_{3.14}$};
+\node[nt, below left=0.9cm and 0.45cm of Earg] (F314) {$\langle F\rangle_{3.14}$};
+\node[nt, below right=0.9cm and 0.4cm of Earg] (TpDiv) {$\langle T'\rangle_{3.14\downarrow,\,1.57\uparrow}$};
+\node[tok, below=0.65cm of F314] (n314) {3.14$_{3.14}$};
 \draw[der] (Earg) -- (F314);
 \draw[der] (Earg) -- (TpDiv);
 \draw[der] (F314) -- (n314);
@@ -330,11 +268,11 @@ La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase
 \draw[inh] (F314) to[bend left=12] (TpDiv);
 \draw[syn] (TpDiv) to[bend right=18] (Earg);
 
-\node[tok, below left=0.85cm and 0.7cm of TpDiv] (divTok) {/};
-\node[nt, below=0.85cm of TpDiv] (F2a) {$\langle U\rangle_{2}$};
-\node[nt, below right=0.85cm and 0.5cm of TpDiv] (TpDivEnd) {$\langle T'\rangle_{1.57\downarrow,\,1.57\uparrow}$};
-\node[tok, below=0.65cm of F2a] (n2a) {2$_{2}$};
-\node[tok, below=0.65cm of TpDivEnd] (lamDiv) {$\lambda$};
+\node[tok, below left=0.8cm and 0.65cm of TpDiv] (divTok) {/};
+\node[nt, below=0.8cm of TpDiv] (F2a) {$\langle U\rangle_{2}$};
+\node[nt, below right=0.8cm and 0.45cm of TpDiv] (TpDivEnd) {$\langle T'\rangle_{1.57\downarrow,\,1.57\uparrow}$};
+\node[tok, below=0.6cm of F2a] (n2a) {2$_{2}$};
+\node[tok, below=0.6cm of TpDivEnd] (lamDiv) {$\lambda$};
 \draw[der] (TpDiv) -- (divTok);
 \draw[der] (TpDiv) -- (F2a);
 \draw[der] (TpDiv) -- (TpDivEnd);
@@ -344,11 +282,10 @@ La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase
 \draw[inh] (F2a) to[bend left=10] node[above,font=\tiny\color{red!75!black}]{$s=3.14/2$} (TpDivEnd);
 \draw[syn] (TpDivEnd) to[bend right=18] (TpDiv);
 
-% Subarbol derecho: + cos(0) * 2^2
-\node[tok, below left=1.0cm and 1.8cm of Ep1] (plusTok) {+};
-\node[nt, below=1.0cm of Ep1] (T2) {$\langle T\rangle_{4.0}$};
-\node[nt, below right=1.0cm and 1.9cm of Ep1] (Ep2) {$\langle E'\rangle_{4.99999968\downarrow,\,4.99999968\uparrow}$};
-\node[tok, below=0.75cm of Ep2] (lamEnd) {$\lambda$};
+\node[tok, below left=0.95cm and 1.75cm of Ep1] (plusTok) {+};
+\node[nt, below=0.95cm of Ep1] (T2) {$\langle T\rangle_{4.0}$};
+\node[nt, below right=0.95cm and 1.85cm of Ep1] (Ep2) {$\langle E'\rangle_{4.99999968\downarrow,\,4.99999968\uparrow}$};
+\node[tok, below=0.65cm of Ep2] (lamEnd) {$\lambda$};
 \draw[der] (Ep1) -- (plusTok);
 \draw[der] (Ep1) -- (T2);
 \draw[der] (Ep1) -- (Ep2);
@@ -356,21 +293,21 @@ La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase
 \draw[inh] (T2) to[bend left=12] node[above,font=\tiny\color{red!75!black}]{$s=p+r$} (Ep2);
 \draw[syn] (Ep2) to[bend right=18] node[right,font=\tiny\color{blue!75!black}]{$q=t$} (Ep1);
 
-\node[nt, below left=1.0cm and 0.8cm of T2] (Fcos) {$\langle F\rangle_{1.0}$};
-\node[nt, below right=1.0cm and 0.6cm of T2] (Tp2) {$\langle T'\rangle_{1.0\downarrow,\,4.0\uparrow}$};
+\node[nt, below left=0.95cm and 0.75cm of T2] (Fcos) {$\langle F\rangle_{1.0}$};
+\node[nt, below right=0.95cm and 0.55cm of T2] (Tp2) {$\langle T'\rangle_{1.0\downarrow,\,4.0\uparrow}$};
 \draw[der] (T2) -- (Fcos);
 \draw[der] (T2) -- (Tp2);
 \draw[inh] (Fcos) to[bend left=12] node[above,font=\tiny\color{red!75!black}]{$t=q$} (Tp2);
 \draw[syn] (Tp2) to[bend right=18] (T2);
 
-\node[tok, below=0.75cm of Fcos] (cos0) {cos(0$_{0}$)};
+\node[tok, below=0.65cm of Fcos] (cos0) {cos(0$_{0}$)};
 \draw[der] (Fcos) -- (cos0);
 \draw[syn] (cos0) to[bend left=18] node[left,font=\tiny\color{blue!75!black}]{$\cos(0)$} (Fcos);
 
-\node[tok, below left=0.95cm and 0.9cm of Tp2] (mulTok) {*};
-\node[nt, below=0.95cm of Tp2] (Ppow) {$\langle P\rangle_{4.0}$};
-\node[nt, below right=0.95cm and 0.9cm of Tp2] (Tp2End) {$\langle T'\rangle_{4.0\downarrow,\,4.0\uparrow}$};
-\node[tok, below=0.65cm of Tp2End] (lamMul) {$\lambda$};
+\node[tok, below left=0.9cm and 0.85cm of Tp2] (mulTok) {*};
+\node[nt, below=0.9cm of Tp2] (Ppow) {$\langle P\rangle_{4.0}$};
+\node[nt, below right=0.9cm and 0.85cm of Tp2] (Tp2End) {$\langle T'\rangle_{4.0\downarrow,\,4.0\uparrow}$};
+\node[tok, below=0.6cm of Tp2End] (lamMul) {$\lambda$};
 \draw[der] (Tp2) -- (mulTok);
 \draw[der] (Tp2) -- (Ppow);
 \draw[der] (Tp2) -- (Tp2End);
@@ -378,10 +315,10 @@ La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase
 \draw[inh] (Ppow) to[bend left=10] node[above,font=\tiny\color{red!75!black}]{$s=1*4$} (Tp2End);
 \draw[syn] (Tp2End) to[bend right=18] (Tp2);
 
-\node[nt, below left=0.85cm and 0.3cm of Ppow] (F2b) {$\langle F\rangle_{2}$};
-\node[nt, below right=0.85cm and 0.3cm of Ppow] (Pp) {$\langle P'\rangle_{2\downarrow,\,4\uparrow}$};
-\node[tok, below=0.65cm of F2b] (n2b) {2$_{2}$};
-\node[tok, below=0.65cm of Pp] (pow2) {\texttt{\^{}} 2$_{2}$};
+\node[nt, below left=0.8cm and 0.3cm of Ppow] (F2b) {$\langle F\rangle_{2}$};
+\node[nt, below right=0.8cm and 0.3cm of Ppow] (Pp) {$\langle P'\rangle_{2\downarrow,\,4\uparrow}$};
+\node[tok, below=0.6cm of F2b] (n2b) {2$_{2}$};
+\node[tok, below=0.6cm of Pp] (pow2) {\texttt{\^{}} 2$_{2}$};
 \draw[der] (Ppow) -- (F2b);
 \draw[der] (Ppow) -- (Pp);
 \draw[der] (F2b) -- (n2b);
@@ -391,24 +328,23 @@ La Figura~1 muestra el árbol de derivación completo anotado al estilo de clase
 \draw[syn] (pow2) to[bend right=18] node[right,font=\tiny\color{blue!75!black}]{$2^2$} (Pp);
 \draw[syn] (Pp) to[bend right=16] (Ppow);
 \end{tikzpicture}
-\caption{Árbol de derivación con atributos para \texttt{sen(3.14 / 2) + cos(0) * 2\^{}2}. Las flechas azules muestran el flujo sintético ($\uparrow$, abajo hacia arriba) y las rojas punteadas el flujo heredado ($\downarrow$, izquierda a derecha).}
+\caption{Árbol de derivación con atributos para \texttt{sen(3.14 / 2) + cos(0) * 2\^{}2} (azul: sintético $\uparrow$; rojo punteado: heredado $\downarrow$).}
 \end{figure}
 
-\subsection*{Validaciones Implementadas}
+\subsection*{Validaciones implementadas}
 \begin{itemize}
-    \item \textbf{Léxicas:} caracteres no reconocidos (\texttt{@}), tokens de C no permitidos (\texttt{;}, cadenas), literales hexadecimales (\texttt{0x10}) y puntos aislados (\texttt{.}, \texttt{3..1}). Se admiten enteros, decimales (\texttt{3.14}, \texttt{.5}, \texttt{3.}) y notación científica (\texttt{1.5e-3}, \texttt{2E3}).
-    \item \textbf{Sintácticas:} entrada vacía, paréntesis vacíos o desbalanceados, funciones sin paréntesis (\texttt{sin x}), funciones no soportadas (\texttt{log(x)}), exponentes incompletos o letras pegadas (\texttt{3445ea}, \texttt{1.5e+}, \texttt{1.2.3}), operadores consecutivos o faltantes (\texttt{2 * / 3}, \texttt{2 x}) y límite de recursión (512 niveles).
-    \item \textbf{Matemáticas:} división por cero (\texttt{divisor == 0}), \texttt{0} elevado a exponente negativo, base negativa con exponente fraccionario (\texttt{(-4)\^0.5}), constantes fuera de rango (\texttt{1e400}) y desbordamientos (\texttt{!std::isfinite}).
-    \item \textbf{Entrada de variables:} rechazo de cadenas vacías, texto no numérico, \texttt{nan}, \texttt{inf}, \texttt{3445ea} o \texttt{1.5e+} (acepta enteros, decimales y notación científica válida).
+    \item \textbf{Léxicas:} caracteres no reconocidos (\texttt{@}), tokens de C (\texttt{;}, cadenas), hexadecimales (\texttt{0x10}) y puntos aislados (\texttt{.}, \texttt{3..1}).
+    \item \textbf{Sintácticas:} entrada vacía, paréntesis vacíos o sin cierre, funciones sin \texttt{(} (\texttt{sin x}), funciones no soportadas (\texttt{log(x)}), números mal formados (\texttt{3445ea}, \texttt{1.5e+}, \texttt{1.2.3}), operadores consecutivos y límite de recursión (512 niveles).
+    \item \textbf{Matemáticas y de entrada:} división por cero, \texttt{0} con exponente negativo, base negativa con exponente no entero, desbordamientos (\texttt{!std::isfinite}) y validación estricta de reales al leer variables.
 \end{itemize}
 
-\section{Casos de Prueba y Validación Matemática}
-Se ejecutaron 53 verificaciones unitarias automatizadas (\texttt{make test}) y se contrastaron todas las expresiones del enunciado, distintos formatos de constantes reales y funciones trigonométricas anidadas contra \texttt{math} de Python 3 (con $x=1.0$, $y=0.5$, $z=2.0$ en radianes):
+\section{Casos de Prueba y Resultados}
+Se ejecutaron \textbf{60 verificaciones unitarias} (\texttt{make test}) y se validaron las expresiones del enunciado junto con casos límite contra \texttt{math} de Python 3 ($x=1.0$, $y=0.5$, $z=2.0$ en radianes):
 
 \begin{table}[H]
 \centering
 \scriptsize
-\begin{tabular}{p{5.8cm}rrr}
+\begin{tabular}{p{6.0cm}rrr}
 \toprule
 \textbf{Expresión de entrada} & \textbf{Evaluador C++} & \textbf{Python \texttt{math}} & \textbf{$|\Delta|$} \\
 \midrule
@@ -419,47 +355,26 @@ Se ejecutaron 53 verificaciones unitarias automatizadas (\texttt{make test}) y s
 \texttt{sin(x)} & \texttt{0.841470984807897} & \texttt{0.841470984807897} & $4.44\times 10^{-16}$ \\
 \texttt{cos(x + y)} & \texttt{0.0707372016677029} & \texttt{0.0707372016677029} & $0.00$ \\
 \texttt{tan(x\^{}2 + sin(x))} & \texttt{-3.60380353200881} & \texttt{-3.60380353200881} & $4.44\times 10^{-15}$ \\
-\texttt{.5 + 3.} & \texttt{3.5} & \texttt{3.5} & $0.00$ \\
-\texttt{-.25 + +.75} & \texttt{0.5} & \texttt{0.5} & $0.00$ \\
-\texttt{1.5e-3 * 2E3} & \texttt{3} & \texttt{3} & $0.00$ \\
-\texttt{.5e2 + 3.e-1} & \texttt{50.3} & \texttt{50.3} & $0.00$ \\
 \texttt{sen(cos(tan(0.5)))} & \texttt{0.754210756032613} & \texttt{0.754210756032613} & $4.44\times 10^{-16}$ \\
-\texttt{tan(sin(cos(.5)) + 1.2e-2)} & \texttt{0.991631496487538} & \texttt{0.991631496487538} & $1.11\times 10^{-16}$ \\
-\texttt{cos(sen(x) + tan(y * 1e-1))} & \texttt{0.628235835763506} & \texttt{0.628235835763506} & $1.11\times 10^{-16}$ \\
+\texttt{1.5e-3 * 2E3} & \texttt{3} & \texttt{3} & $0.00$ \\
 \texttt{-2\^{}2 + 10 / 2 * 3} & \texttt{11} & \texttt{11} & $0.00$ \\
 \texttt{2\^{}3\^{}2} & \texttt{512} & \texttt{512} & $0.00$ \\
-\texttt{sin(-x + 0.5 * z) / (1 + cos(y)\^{}2)} & \texttt{0} & \texttt{0} & $0.00$ \\
 \bottomrule
 \end{tabular}
-\caption{Comparación de resultados obtenidos vs. referencia matemática (\texttt{x=1.0, y=0.5, z=2.0}).}
+\caption{Validación matemática en radianes ($x=1.0$, $y=0.5$). El registro completo está en \texttt{output/resultados\_pruebas.txt}.}
 \end{table}
 
-Asimismo, los 19 casos inválidos contenidos en \texttt{tests/expresiones\_invalidas.txt} fueron rechazados en su fase correspondiente (léxica, sintáctica o matemática) con indicación precisa de línea, columna y lexema problemático (ver \texttt{output/resultados\_pruebas.txt}).
-
-\subsection*{Ejecución Interactiva e Ingreso de Valores de Variables}
-Cuando la expresión contiene variables simbólicas (ej. \texttt{x}, \texttt{y}), al ejecutar \texttt{./evaluador} (o \texttt{./evaluador -e "<expr>"} sin \texttt{-v}), el módulo valida primero la sintaxis LL(1), detecta las variables únicas en orden de aparición y las solicita una a una al usuario:
+\noindent Adicionalmente, los \textbf{19 casos inválidos} de \texttt{tests/expresiones\_invalidas.txt} fueron rechazados en su fase exacta (léxica, sintáctica o matemática). Ejemplo de ejecución interactiva con solicitud de variables y modo grados:
 
 \begin{lstlisting}
 $ ./evaluador
-Seleccione unidad angular [1 = Radianes (por defecto), 2 = Grados]: 1
 [RAD] > sen(cos(x))+ tan(y)/cos(x)
-  Ingrese valor para 'x' (radianes si es angulo): abc
-  Valor invalido. Ingrese un numero real (ej: 0, 3.14, -1.5, .5, 1.5e-3).
-  Ingrese valor para 'x' (radianes si es angulo): 1.0
-  Ingrese valor para 'y' (radianes si es angulo): 0.5
-Resultado: 1.52550049333466
-
+  Ingrese valor para 'x': 1.0  |  'y': 0.5  =>  Resultado: 1.52550049333466
 [RAD] > grados
-Modo cambiado a GRADOS.
-[DEG] > sen(a + c)
-  Ingrese valor para 'a' (grados si es angulo): 45
-  Ingrese valor para 'c' (grados si es angulo): 45
-Resultado: 1
+[DEG] > sen(a + c)    # con a=45, c=45 => Resultado: 1
 \end{lstlisting}
 
-También es posible pasar valores y unidad directamente desde la línea de comandos mediante \texttt{-v x=1.0 -v y=0.5} y \texttt{-g} (grados).
-
 \section{Conclusiones}
-La gramática LL(1) diseñada resuelve de forma natural la precedencia y asociatividad de operadores aritméticos, unarios, potencias y funciones trigonométricas sin ambigüedad. El uso de la arquitectura modular de \texttt{scanner\_c} permitió construir el evaluador de forma limpia y mantenible, garantizando una detección temprana y precisa de errores en todas las fases del análisis.
+La gramática LL(1) diseñada garantiza la precedencia y asociatividad correcta de expresiones aritméticas y trigonométricas sin ambigüedad. Al separar la validación sintáctica de la evaluación y reutilizar la arquitectura modular de \texttt{scanner\_c}, el parser logra evaluar directamente en precisión \texttt{double} y reportar errores tempranos con exactitud.
 
 \end{document}
