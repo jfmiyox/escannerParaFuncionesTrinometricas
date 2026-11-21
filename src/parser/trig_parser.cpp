@@ -60,7 +60,6 @@ ResultadoEvaluacion ParserTrigonometrico::evaluar(
     return ResultadoEvaluacion{true, resultado, std::nullopt};
 }
 
-// E -> T E'
 double ParserTrigonometrico::parseE() {
     if (++profundidad_ > MAX_PROFUNDIDAD_RECURSION) {
         reportarError(FaseError::SINTACTICO,
@@ -76,7 +75,6 @@ double ParserTrigonometrico::parseE() {
     return resultado;
 }
 
-// E' -> + T E' | - T E' | epsilon
 double ParserTrigonometrico::parseEPrima(double acumulado) {
     TipoComponente tipo = actual().tipo;
     if (tipo != TipoComponente::PLUS && tipo != TipoComponente::MINUS) {
@@ -96,14 +94,12 @@ double ParserTrigonometrico::parseEPrima(double acumulado) {
     return parseEPrima(siguiente);
 }
 
-// T -> U T'
 double ParserTrigonometrico::parseT() {
     double izquierda = parseU();
     if (tieneError()) return 0.0;
     return parseTPrima(izquierda);
 }
 
-// T' -> * U T' | / U T' | epsilon
 double ParserTrigonometrico::parseTPrima(double acumulado) {
     TipoComponente tipo = actual().tipo;
     if (tipo != TipoComponente::MUL_OP && tipo != TipoComponente::DIV_OP) {
@@ -126,7 +122,6 @@ double ParserTrigonometrico::parseTPrima(double acumulado) {
     return parseTPrima(siguiente);
 }
 
-// U -> + U | - U | P
 double ParserTrigonometrico::parseU() {
     TipoComponente tipo = actual().tipo;
     if (tipo == TipoComponente::PLUS || tipo == TipoComponente::MINUS) {
@@ -139,19 +134,18 @@ double ParserTrigonometrico::parseU() {
     return parseP();
 }
 
-// P -> F P'
 double ParserTrigonometrico::parseP() {
     double base = parseF();
     if (tieneError()) return 0.0;
     return parsePPrima(base);
 }
 
-// P' -> ^ U | epsilon  (asociatividad derecha)
 double ParserTrigonometrico::parsePPrima(double base) {
     if (actual().tipo != TipoComponente::XOR_OP) {
         return base;
     }
 
+    // el exponente baja por U: asi 2^3^2 asocia a la derecha y 2^-2 funciona
     ComponenteLexico op = avanzar();
     double exponente = parseU();
     if (tieneError()) return 0.0;
@@ -160,7 +154,6 @@ double ParserTrigonometrico::parsePPrima(double base) {
     return calcularPotencia(base, exponente, op);
 }
 
-// F -> ( E ) | FUNC ( E ) | NUM | VAR
 double ParserTrigonometrico::parseF() {
     const ComponenteLexico& tok = actual();
 
@@ -201,7 +194,7 @@ double ParserTrigonometrico::parseF() {
 }
 
 double ParserTrigonometrico::parseParentesis() {
-    ComponenteLexico apertura = avanzar(); // consume '('
+    ComponenteLexico apertura = avanzar();
     if (actual().tipo == TipoComponente::RPAR) {
         reportarError(FaseError::SINTACTICO,
                       "Parentesis vacios '()': se esperaba una expresion",
@@ -218,12 +211,12 @@ double ParserTrigonometrico::parseParentesis() {
                                std::to_string(apertura.columna));
         return 0.0;
     }
-    avanzar(); // consume ')'
+    avanzar();
     return valor;
 }
 
 double ParserTrigonometrico::parseFuncion() {
-    ComponenteLexico fn = avanzar(); // consume sin/sen/cos/tan
+    ComponenteLexico fn = avanzar();
 
     if (actual().tipo != TipoComponente::LPAR) {
         reportarError(FaseError::SINTACTICO,
@@ -231,7 +224,7 @@ double ParserTrigonometrico::parseFuncion() {
                       actual());
         return 0.0;
     }
-    avanzar(); // consume '('
+    avanzar();
 
     if (actual().tipo == TipoComponente::RPAR) {
         reportarError(FaseError::SINTACTICO,
@@ -247,7 +240,7 @@ double ParserTrigonometrico::parseFuncion() {
         reportarCierreEsperado("'" + fn.lexema + "(...)'");
         return 0.0;
     }
-    avanzar(); // consume ')'
+    avanzar();
 
     if (!evaluando_) return 0.0;
     return aplicarFuncion(fn, argumento);

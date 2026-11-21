@@ -24,3 +24,9 @@
 # Archivos del sistema operativo
 .DS_Store
 Thumbs.db
+
+# Herramientas locales (no se versionan)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+graphify-out/

@@ -2,9 +2,6 @@
 #include <iostream>
 #include <iomanip>
 
-// Imprime el cierre del analisis: exito o lista numerada de errores.
-// Los numeros de linea/columna se alinean con setw para que el bloque
-// quede en columnas legibles aunque haya posiciones de 1 o 3 digitos.
 void imprimirResumen(const std::vector<ErrorLexico>& errores) {
     if (errores.empty()) {
         std::cout << "\n[OK] Escaneo completado sin errores lexicos.\n";

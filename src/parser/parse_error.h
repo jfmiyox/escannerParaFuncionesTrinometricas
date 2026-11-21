@@ -3,10 +3,6 @@
 
 #include <string>
 
-// Capa: PARSER (entidad de error de analisis y evaluacion).
-//
-// Representa un fallo detectado durante la validacion de tokens, el
-// analisis sintactico LL(1) o la evaluacion matematica de la expresion.
 enum class FaseError {
     LEXICO,
     SINTACTICO,
@@ -30,4 +26,4 @@ struct ErrorAnalisis {
     }
 };
 
-#endif // PARSER_PARSE_ERROR_H
+#endif

@@ -1,11 +1,9 @@
 #include "trig_language.h"
 
-// Palabras reservadas reconocidas como funciones trigonometricas.
-// Se incluye "sen" como alias de "sin" porque aparece en los ejemplos
-// del enunciado (ej. "sen(3.14 / 2) + cos(0) * 2^2").
+
 static const std::unordered_map<std::string, TipoComponente> FUNCIONES_TRIG = {
     {"sin", TipoComponente::FN_SIN},
-    {"sen", TipoComponente::FN_SIN},
+    {"sen", TipoComponente::FN_SIN},  // alias de sin
     {"cos", TipoComponente::FN_COS},
     {"tan", TipoComponente::FN_TAN},
 };

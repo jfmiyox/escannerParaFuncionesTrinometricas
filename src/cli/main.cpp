@@ -253,7 +253,7 @@ int ejecutarLote(
     return (fallos == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-} // namespace
+}
 
 int main(int argc, char* argv[]) {
     OpcionesCLI opts;

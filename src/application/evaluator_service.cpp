@@ -52,7 +52,6 @@ bool ServicioEvaluador::parsearNumeroReal(const std::string& texto, double& sali
 
     std::string limpio = texto.substr(inicio, fin - inicio);
 
-    // Verifica formato real: [+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?
     size_t i = 0;
     if (limpio[i] == '+' || limpio[i] == '-') i++;
     if (i >= limpio.size()) return false;
